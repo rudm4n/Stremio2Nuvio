@@ -249,14 +249,25 @@
       <!-- Main action bar -->
       <div id="actionBar" style="margin-bottom:18px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
         <button class="btn btn-nuvio" id="installAllBtn" onclick="installAll()">
-          ▶ Install All Automatically
+          ▶ Start Installation
         </button>
         <button class="btn btn-ghost" id="stopBtn" onclick="stopAuto()" style="display:none;">
           ⏹ Stop
         </button>
-        <div class="countdown hidden" id="cdBox">
-          Next in <span id="cdNum">3</span>s
+      </div>
+
+      <!-- Current addon install prompt (shown one at a time) -->
+      <div id="currentInstallBox" style="display:none; background:rgba(79,158,245,.08); border:1px solid rgba(79,158,245,.3); border-radius:10px; padding:16px 18px; margin-bottom:16px;">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Installing <span id="ciProgress"></span></div>
+        <div style="font-size:15px; font-weight:600; margin-bottom:12px;" id="ciName"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <a id="ciBtn" class="btn btn-nuvio" style="text-decoration:none; font-size:14px; padding:10px 20px;">
+            📲 Tap to Install in Nuvio
+          </a>
+          <button class="btn btn-ghost btn-sm" id="ciSkipBtn" onclick="skipCurrent()">Skip</button>
+          <button class="btn btn-ghost btn-xs" id="ciQrBtn" onclick="">QR</button>
         </div>
+        <div style="font-size:11px; color:var(--muted); margin-top:8px;">URL copiata negli appunti — dopo aver aperto Nuvio torna qui per il prossimo addon.</div>
       </div>
 
       <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
@@ -434,8 +445,9 @@ function setupTransfer() {
   document.getElementById('progFill').style.width = '0%';
   document.getElementById('progTxt').textContent = `0 / ${selected.length} installed`;
   document.getElementById('installAllBtn').disabled = false;
+  document.getElementById('installAllBtn').textContent = '▶ Start Installation';
   document.getElementById('stopBtn').style.display = 'none';
-  document.getElementById('cdBox').classList.add('hidden');
+  document.getElementById('currentInstallBox').style.display = 'none';
   document.getElementById('doneBtn').classList.add('hidden');
 
   const list = document.getElementById('tList');
@@ -465,69 +477,79 @@ function installAll() {
 }
 
 function runNext() {
-  if (autoIdx >= selected.length) {
-    finishAll(); return;
-  }
-  setStatus(autoIdx, 'curr', '⏳ Opening…');
-  const url = getManifestUrl(selected[autoIdx]);
-  if (url) {
-    openNuvio(url);
-    setTimeout(() => {
-      setStatus(autoIdx, 'done', '✓ Opened');
-      doneCount++;
-      updateProg();
-      autoIdx++;
-      // countdown to next
-      if (autoIdx < selected.length) startCountdown(5);
-      else finishAll();
-    }, 800);
-  } else {
+  // skip addons with no URL automatically
+  while (autoIdx < selected.length && !getManifestUrl(selected[autoIdx])) {
     setStatus(autoIdx, 'skip', 'No URL');
     autoIdx++;
     updateProg();
-    if (autoIdx < selected.length) startCountdown(1);
-    else finishAll();
   }
+  if (autoIdx >= selected.length) { finishAll(); return; }
+
+  const url = getManifestUrl(selected[autoIdx]);
+  const m = (selected[autoIdx].manifest || selected[autoIdx]);
+  const name = m.name || 'Unknown';
+
+  setStatus(autoIdx, 'curr', '⏳ Ready…');
+
+  // copy URL to clipboard
+  try { navigator.clipboard.writeText(url); } catch {}
+
+  // build nuvio:// deep link
+  let nuvioUrl = url;
+  try { const p = new URL(url); nuvioUrl = 'nuvio://' + p.host + p.pathname + p.search; } catch {}
+
+  // show current install box — user MUST tap the link (browser requires user gesture for deep links)
+  const box = document.getElementById('currentInstallBox');
+  document.getElementById('ciProgress').textContent = `${autoIdx + 1} / ${selected.length}`;
+  document.getElementById('ciName').textContent = name;
+  const btn = document.getElementById('ciBtn');
+  btn.href = nuvioUrl;
+  btn.onclick = () => { markCurrentDone(); return true; };
+  document.getElementById('ciQrBtn').onclick = () => showQR(autoIdx);
+  box.style.display = '';
+
+  // scroll the current addon into view in the list
+  const el = document.getElementById('ti'+autoIdx);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function startCountdown(secs) {
-  const box = document.getElementById('cdBox');
-  const num = document.getElementById('cdNum');
-  box.classList.remove('hidden');
-  let t = secs;
-  num.textContent = t;
-  autoTimer = setInterval(() => {
-    t--;
-    num.textContent = t;
-    if (t <= 0) {
-      clearInterval(autoTimer);
-      box.classList.add('hidden');
-      runNext();
-    }
-  }, 1000);
+function markCurrentDone() {
+  setStatus(autoIdx, 'done', '✓ Opened');
+  doneCount++;
+  autoIdx++;
+  updateProg();
+  document.getElementById('currentInstallBox').style.display = 'none';
+  if (autoIdx < selected.length) setTimeout(runNext, 600);
+  else finishAll();
+}
+
+function skipCurrent() {
+  setStatus(autoIdx, 'skip', 'Skipped');
+  autoIdx++;
+  updateProg();
+  document.getElementById('currentInstallBox').style.display = 'none';
+  if (autoIdx < selected.length) setTimeout(runNext, 300);
+  else finishAll();
 }
 
 function stopAuto() {
-  clearInterval(autoTimer);
   document.getElementById('installAllBtn').disabled = false;
   document.getElementById('stopBtn').style.display = 'none';
-  document.getElementById('cdBox').classList.add('hidden');
+  document.getElementById('currentInstallBox').style.display = 'none';
   // mark remaining as waiting
   for (let i = autoIdx; i < selected.length; i++) {
     const el = document.getElementById('ts'+i);
-    if (el && el.classList.contains('s-curr')) setStatus(i,'wait','Waiting');
+    if (el && (el.classList.contains('s-curr'))) setStatus(i,'wait','Waiting');
   }
 }
 
 function finishAll() {
-  clearInterval(autoTimer);
   document.getElementById('stopBtn').style.display = 'none';
-  document.getElementById('cdBox').classList.add('hidden');
+  document.getElementById('currentInstallBox').style.display = 'none';
   document.getElementById('doneBtn').classList.remove('hidden');
   document.getElementById('installAllBtn').textContent = '↺ Restart';
   document.getElementById('installAllBtn').disabled = false;
   autoIdx = 0;
-  // final progress
   document.getElementById('progFill').style.width = '100%';
   document.getElementById('progTxt').textContent = `${doneCount} / ${selected.length} installed`;
 }
@@ -550,24 +572,6 @@ function getManifestUrl(addon) {
   return addon.transportUrl || addon.manifest_url || null;
 }
 
-function openNuvio(manifestUrl) {
-  let nuvioUrl = manifestUrl;
-  try {
-    const p = new URL(manifestUrl);
-    nuvioUrl = 'nuvio://' + p.host + p.pathname + p.search;
-  } catch {}
-
-  // copy URL to clipboard silently (fallback for manual paste)
-  try { navigator.clipboard.writeText(manifestUrl); } catch {}
-
-  // use a hidden anchor click — doesn't navigate away from page
-  const a = document.createElement('a');
-  a.href = nuvioUrl;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
 
 // ── Copy URL ──────────────────────────────────────────────────────────────────
 function copyUrl(i) {
