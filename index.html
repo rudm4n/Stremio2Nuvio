@@ -258,16 +258,29 @@
 
       <!-- Current addon install prompt (shown one at a time) -->
       <div id="currentInstallBox" style="display:none; background:rgba(79,158,245,.08); border:1px solid rgba(79,158,245,.3); border-radius:10px; padding:16px 18px; margin-bottom:16px;">
-        <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Installing <span id="ciProgress"></span></div>
-        <div style="font-size:15px; font-weight:600; margin-bottom:12px;" id="ciName"></div>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Addon <span id="ciProgress"></span></div>
+        <div style="font-size:15px; font-weight:600; margin-bottom:4px;" id="ciName"></div>
+        <div style="font-size:11px; color:var(--nuvio); margin-bottom:12px;">✓ URL copiata negli appunti</div>
+
+        <!-- URL display box -->
+        <div id="ciUrlBox" style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:11px; color:var(--muted); word-break:break-all; margin-bottom:12px;"></div>
+
+        <!-- Steps -->
+        <div style="font-size:12px; color:var(--text); margin-bottom:10px; line-height:1.8;">
+          1. Apri Nuvio &nbsp;→&nbsp; <strong>Addons</strong><br>
+          2. Premi <strong>+</strong> o <em>"Aggiungi addon"</em><br>
+          3. Incolla l'URL (già negli appunti) e conferma
+        </div>
+
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <a id="ciBtn" class="btn btn-nuvio" style="text-decoration:none; font-size:14px; padding:10px 20px;">
-            📲 Tap to Install in Nuvio
+          <a id="ciBtn" class="btn btn-nuvio" style="text-decoration:none; font-size:13px;" href="nuvio://">
+            Apri Nuvio
           </a>
-          <button class="btn btn-ghost btn-sm" id="ciSkipBtn" onclick="skipCurrent()">Skip</button>
+          <button class="btn btn-ghost btn-sm" id="ciCopyBtn" onclick="reCopyAndMark()">📋 Copia URL</button>
+          <button class="btn btn-ghost btn-sm" onclick="markCurrentDone()">✓ Fatto, prossimo →</button>
+          <button class="btn btn-ghost btn-xs" id="ciSkipBtn" onclick="skipCurrent()">Salta</button>
           <button class="btn btn-ghost btn-xs" id="ciQrBtn" onclick="">QR</button>
         </div>
-        <div style="font-size:11px; color:var(--muted); margin-top:8px;">URL copiata negli appunti — dopo aver aperto Nuvio torna qui per il prossimo addon.</div>
       </div>
 
       <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
@@ -281,8 +294,8 @@
       </div>
     </div>
 
-    <div class="alert alert-warn">
-      <strong>Tip:</strong> If Nuvio doesn't open, tap the <strong>QR</strong> button next to any addon to scan it with your phone, or tap <strong>Copy</strong> and paste the URL in Nuvio under <em>Addons → Add by URL</em>.
+    <div class="alert alert-info">
+      <strong>Come funziona:</strong> Nuvio non supporta deep link per gli addon. Ogni URL viene copiata automaticamente — apri Nuvio, vai in <strong>Addons → +</strong>, incolla e conferma. Poi torna qui e premi <em>"Fatto, prossimo"</em>.
     </div>
   </div>
 
@@ -494,18 +507,13 @@ function runNext() {
   // copy URL to clipboard
   try { navigator.clipboard.writeText(url); } catch {}
 
-  // build stremio:// deep link (Nuvio uses stremio:// protocol)
-  const nuvioUrl = url.replace(/^https?:\/\//, 'stremio://');
 
-  // show current install box — user MUST tap the link (browser requires user gesture for deep links)
-  const box = document.getElementById('currentInstallBox');
+  // show current install box
   document.getElementById('ciProgress').textContent = `${autoIdx + 1} / ${selected.length}`;
   document.getElementById('ciName').textContent = name;
-  const btn = document.getElementById('ciBtn');
-  btn.href = nuvioUrl;
-  btn.onclick = () => { markCurrentDone(); return true; };
+  document.getElementById('ciUrlBox').textContent = url;
   document.getElementById('ciQrBtn').onclick = () => showQR(autoIdx);
-  box.style.display = '';
+  document.getElementById('currentInstallBox').style.display = '';
 
   // scroll the current addon into view in the list
   const el = document.getElementById('ti'+autoIdx);
@@ -520,6 +528,16 @@ function markCurrentDone() {
   document.getElementById('currentInstallBox').style.display = 'none';
   if (autoIdx < selected.length) setTimeout(runNext, 600);
   else finishAll();
+}
+
+function reCopyAndMark() {
+  const url = getManifestUrl(selected[autoIdx]);
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('ciCopyBtn');
+    btn.textContent = '✓ Copiata!';
+    setTimeout(() => { btn.textContent = '📋 Copia URL'; }, 2000);
+  });
 }
 
 function skipCurrent() {
