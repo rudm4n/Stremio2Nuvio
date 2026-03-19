@@ -1,0 +1,9 @@
+FROM busybox:latest
+
+RUN git clone https://github.com/rudm4n/Stremio2Nuvio.git /tmp/app
+
+RUN cp /tmp/app/index.html /var/www/index.html
+
+EXPOSE 7860
+
+CMD ["httpd", "-f", "-p", "7860", "-h", "/var/www"]
