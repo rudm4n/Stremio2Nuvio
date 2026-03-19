@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stremio → Nuvio | Addon Transfer</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --surface2: #1e1e1e;
+      --border: #2a2a2a;
+      --accent: #7c5cbf;
+      --accent-h: #9370e0;
+      --nuvio: #4f9ef5;
+      --nuvio-h: #6ab0ff;
+      --text: #f0f0f0;
+      --muted: #888;
+      --ok: #4caf50;
+      --err: #f44336;
+      --warn: #ff9800;
+      --r: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* header */
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--nuvio)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+    .logo-text { font-size: 17px; font-weight: 700; }
+    .logo-text span { color: var(--nuvio); }
+    .header-sub { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+    /* main */
+    main { flex: 1; padding: 28px 20px; max-width: 820px; margin: 0 auto; width: 100%; }
+
+    /* steps */
+    .steps { display: flex; margin-bottom: 32px; position: relative; }
+    .steps::before { content: ''; position: absolute; top: 17px; left: 17px; right: 17px; height: 2px; background: var(--border); }
+    .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; z-index: 1; }
+    .step-dot { width: 34px; height: 34px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; transition: all .3s; }
+    .step.active .step-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .step.done .step-dot { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .step-label { font-size: 11px; color: var(--muted); text-align: center; }
+    .step.active .step-label { color: var(--text); }
+
+    /* card */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 26px; margin-bottom: 16px; }
+    .card h2 { font-size: 17px; font-weight: 600; margin-bottom: 5px; }
+    .card .desc { font-size: 13px; color: var(--muted); margin-bottom: 22px; line-height: 1.5; }
+
+    /* tabs */
+    .tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 8px; padding: 4px; margin-bottom: 18px; }
+    .tab { flex: 1; padding: 7px 10px; background: transparent; border: none; border-radius: 6px; color: var(--muted); font-size: 13px; cursor: pointer; transition: all .2s; }
+    .tab.active { background: var(--surface); color: var(--text); font-weight: 500; }
+
+    /* form */
+    .fg { margin-bottom: 14px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+    input[type=email], input[type=password], input[type=text] {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 13px; color: var(--text); font-size: 14px; outline: none; transition: border-color .2s;
+    }
+    input:focus { border-color: var(--accent); }
+
+    /* buttons */
+    .btn { padding: 9px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 7px; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+    .btn-nuvio { background: var(--nuvio); color: #fff; }
+    .btn-nuvio:hover:not(:disabled) { background: var(--nuvio-h); }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover:not(:disabled) { background: var(--border); }
+    .btn-sm { padding: 5px 11px; font-size: 12px; }
+    .btn-xs { padding: 3px 8px; font-size: 11px; border-radius: 5px; }
+
+    /* alerts */
+    .alert { border-radius: 8px; padding: 11px 14px; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
+    .alert-err  { background: rgba(244,67,54,.1);  border: 1px solid rgba(244,67,54,.3);  color: #f88; }
+    .alert-ok   { background: rgba(76,175,80,.1);  border: 1px solid rgba(76,175,80,.3);  color: #7f7; }
+    .alert-info { background: rgba(79,158,245,.1); border: 1px solid rgba(79,158,245,.3); color: #7bf; }
+    .alert-warn { background: rgba(255,152,0,.1);  border: 1px solid rgba(255,152,0,.3);  color: #fca; }
+
+    /* info box */
+    .info-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 13px 15px; margin-bottom: 18px; }
+    .info-box h4 { font-size: 13px; font-weight: 600; margin-bottom: 7px; }
+    .info-box ol, .info-box ul { padding-left: 17px; font-size: 12px; color: var(--muted); line-height: 1.8; }
+    .info-box code { background: var(--border); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--text); }
+
+    /* addon list */
+    .addon-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    .sel-count { font-size: 12px; color: var(--muted); margin-left: auto; }
+    .addon-list { display: flex; flex-direction: column; gap: 7px; max-height: 400px; overflow-y: auto; padding-right: 3px; }
+    .addon-list::-webkit-scrollbar { width: 3px; }
+    .addon-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .addon-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 13px; display: flex; align-items: center; gap: 11px; cursor: pointer; transition: border-color .2s; user-select: none; }
+    .addon-item:hover { border-color: var(--accent); }
+    .addon-item.sel { border-color: var(--accent); background: rgba(124,92,191,.1); }
+    .chk { width: 17px; height: 17px; border: 2px solid var(--border); border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .2s; }
+    .addon-item.sel .chk { background: var(--accent); border-color: var(--accent); }
+    .addon-item.sel .chk::after { content: '✓'; color: #fff; font-size: 10px; font-weight: 700; }
+    .addon-logo { width: 34px; height: 34px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--border); }
+    .addon-logo-ph { width: 34px; height: 34px; border-radius: 6px; background: linear-gradient(135deg, var(--accent), var(--nuvio)); display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+    .addon-info { flex: 1; min-width: 0; }
+    .addon-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .addon-sub  { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .badges { display: flex; gap: 4px; flex-shrink: 0; }
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+    .b-cat  { background: rgba(79,158,245,.18); color: var(--nuvio); }
+    .b-str  { background: rgba(124,92,191,.18); color: #b09ee0; }
+    .b-meta { background: rgba(76,175,80,.18);  color: #7f7; }
+
+    /* progress */
+    .prog-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin: 10px 0; overflow: hidden; }
+    .prog-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--nuvio)); border-radius: 2px; transition: width .4s; }
+
+    /* transfer list */
+    .t-list { display: flex; flex-direction: column; gap: 7px; }
+    .t-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 13px; display: flex; align-items: center; gap: 10px; }
+    .t-name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-status { font-size: 11px; padding: 3px 9px; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
+    .s-wait   { background: rgba(255,152,0,.15);  color: var(--warn); }
+    .s-curr   { background: rgba(79,158,245,.15); color: var(--nuvio); }
+    .s-done   { background: rgba(76,175,80,.15);  color: var(--ok); }
+    .s-skip   { background: rgba(136,136,136,.15); color: var(--muted); }
+
+    /* QR modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 20px; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 420px; width: 100%; }
+    .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .modal .sub { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.4; }
+    .qr-wrap { background: #fff; border-radius: 10px; padding: 16px; display: inline-block; margin-bottom: 16px; }
+    .modal-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .url-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 8px 11px; font-size: 11px; color: var(--muted); word-break: break-all; margin-bottom: 14px; cursor: pointer; transition: border-color .2s; }
+    .url-box:hover { border-color: var(--nuvio); }
+
+    /* countdown badge */
+    .countdown { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--nuvio); font-weight: 500; }
+    .countdown span { background: rgba(79,158,245,.15); padding: 2px 8px; border-radius: 5px; min-width: 28px; text-align: center; }
+
+    /* spinner */
+    .spin { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%; animation: rot .7s linear infinite; flex-shrink: 0; }
+    @keyframes rot { to { transform: rotate(360deg); } }
+
+    /* misc */
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 18px; }
+    .hidden { display: none !important; }
+    footer { text-align: center; padding: 18px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    @media (max-width: 560px) {
+      main { padding: 14px; }
+      .card { padding: 18px 14px; }
+      .steps::before { display: none; }
+      .step-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">⇄</div>
+  <span class="logo-text">Stremio<span> → Nuvio</span></span>
+  <span class="header-sub">Addon Transfer</span>
+</header>
+
+<main>
+
+  <!-- Steps -->
+  <div class="steps">
+    <div class="step active" id="si1"><div class="step-dot">1</div><div class="step-label">Login Stremio</div></div>
+    <div class="step" id="si2"><div class="step-dot">2</div><div class="step-label">Select Addons</div></div>
+    <div class="step" id="si3"><div class="step-dot">3</div><div class="step-label">Transfer to Nuvio</div></div>
+  </div>
+
+  <!-- ── STEP 1: Login ── -->
+  <div id="s1">
+    <div class="card">
+      <h2>Login to Stremio</h2>
+      <p class="desc">Your credentials go directly to <strong>api.strem.io</strong> — this site never stores or sees them.</p>
+
+      <div class="tabs">
+        <button class="tab active" id="tabE" onclick="switchTab('email')">Email & Password</button>
+        <button class="tab" id="tabK" onclick="switchTab('key')">AuthKey</button>
+      </div>
+
+      <div id="emailTab">
+        <div class="fg"><label>Email</label><input type="email" id="email" placeholder="you@example.com" /></div>
+        <div class="fg"><label>Password</label><input type="password" id="pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()" /></div>
+      </div>
+
+      <div id="keyTab" class="hidden">
+        <div class="info-box">
+          <h4>How to get your AuthKey</h4>
+          <ol>
+            <li>Go to <strong>web.stremio.com</strong> and sign in</li>
+            <li>Press <strong>F12</strong> → Console tab</li>
+            <li>Run: <code>JSON.parse(localStorage.getItem('profile')).auth.key</code></li>
+            <li>Copy the result and paste below</li>
+          </ol>
+        </div>
+        <div class="fg"><label>AuthKey</label><input type="text" id="authKey" placeholder="Paste your AuthKey here" /></div>
+      </div>
+
+      <div id="loginErr" class="alert alert-err hidden"></div>
+      <button class="btn btn-primary" id="loginBtn" onclick="login()">
+        <div class="spin hidden" id="loginSpin"></div>
+        <span id="loginTxt">Fetch My Addons</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: Select ── -->
+  <div id="s2" class="hidden">
+    <div class="card">
+      <h2>Select Addons to Transfer</h2>
+      <p class="desc">Choose which addons to install in Nuvio. <span id="addonFoundTxt"></span></p>
+
+      <div class="addon-controls">
+        <button class="btn btn-ghost btn-sm" onclick="selAll()">Select All</button>
+        <button class="btn btn-ghost btn-sm" onclick="selNone()">Deselect All</button>
+        <span class="sel-count" id="selCount">0 selected</span>
+      </div>
+
+      <div class="addon-list" id="addonList"></div>
+
+      <div class="row">
+        <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-nuvio" id="toStep3Btn" onclick="goStep(3)" disabled>Continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: Transfer ── -->
+  <div id="s3" class="hidden">
+    <div class="card">
+      <h2>Transfer to Nuvio</h2>
+
+      <!-- Device detection -->
+      <div id="mobileHint" class="alert alert-info hidden">
+        📱 <strong>Mobile detected.</strong> Make sure <strong>Nuvio is installed</strong> — each tap will open the app directly to install the addon.
+      </div>
+      <div id="desktopHint" class="alert alert-warn hidden">
+        🖥️ <strong>Desktop detected.</strong> Use <strong>QR codes</strong> to scan with your phone (where Nuvio is installed), or copy the URLs manually.
+      </div>
+
+      <!-- Main action bar -->
+      <div id="actionBar" style="margin-bottom:18px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <button class="btn btn-nuvio" id="installAllBtn" onclick="installAll()">
+          ▶ Install All Automatically
+        </button>
+        <button class="btn btn-ghost" id="stopBtn" onclick="stopAuto()" style="display:none;">
+          ⏹ Stop
+        </button>
+        <div class="countdown hidden" id="cdBox">
+          Next in <span id="cdNum">3</span>s
+        </div>
+      </div>
+
+      <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:16px;" id="progTxt">0 / 0 installed</div>
+
+      <div class="t-list" id="tList"></div>
+
+      <div class="row">
+        <button class="btn btn-ghost" onclick="stopAuto(); goStep(2)">← Back</button>
+        <button class="btn btn-primary hidden" id="doneBtn" onclick="goStep(1)">Start Over</button>
+      </div>
+    </div>
+
+    <div class="alert alert-warn">
+      <strong>Tip:</strong> If Nuvio doesn't open, tap the <strong>QR</strong> button next to any addon to scan it with your phone, or tap <strong>Copy</strong> and paste the URL in Nuvio under <em>Addons → Add by URL</em>.
+    </div>
+  </div>
+
+</main>
+
+<!-- QR Modal -->
+<div class="modal-overlay hidden" id="qrModal" onclick="closeQR(event)">
+  <div class="modal">
+    <h3 id="qrTitle">Install Addon in Nuvio</h3>
+    <p class="sub" id="qrSub">Scan this QR code with your phone to open Nuvio and install the addon.</p>
+    <div style="text-align:center;">
+      <div class="qr-wrap"><canvas id="qrCanvas"></canvas></div>
+    </div>
+    <div class="url-box" id="qrUrl" onclick="copyQrUrl()" title="Click to copy"></div>
+    <div class="modal-btns">
+      <button class="btn btn-nuvio btn-sm" onclick="copyQrUrl()">Copy URL</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('qrModal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Not affiliated with Stremio or Nuvio &nbsp;·&nbsp;
+  <a href="https://github.com/tapframe/NuvioStreaming" target="_blank">Nuvio on GitHub</a>
+</footer>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let authKey = null, addons = [], selected = [], autoTimer = null, autoIdx = 0, doneCount = 0;
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+let activeTab = 'email';
+
+// ── Tab ───────────────────────────────────────────────────────────────────────
+function switchTab(t) {
+  activeTab = t;
+  document.getElementById('tabE').classList.toggle('active', t === 'email');
+  document.getElementById('tabK').classList.toggle('active', t === 'key');
+  document.getElementById('emailTab').classList.toggle('hidden', t !== 'email');
+  document.getElementById('keyTab').classList.toggle('hidden', t !== 'key');
+}
+
+// ── Steps ─────────────────────────────────────────────────────────────────────
+function goStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('s'+i).classList.toggle('hidden', i !== n);
+    const ind = document.getElementById('si'+i);
+    ind.classList.toggle('active', i === n);
+    ind.classList.toggle('done', i < n);
+  });
+  if (n === 2) renderAddons();
+  if (n === 3) setupTransfer();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+async function login() {
+  const errEl = document.getElementById('loginErr');
+  const btn   = document.getElementById('loginBtn');
+  const spin  = document.getElementById('loginSpin');
+  const txt   = document.getElementById('loginTxt');
+  errEl.classList.add('hidden');
+  btn.disabled = true; spin.classList.remove('hidden'); txt.textContent = 'Connecting…';
+  try {
+    if (activeTab === 'key') {
+      const k = document.getElementById('authKey').value.trim();
+      if (!k) throw new Error('Please enter your AuthKey.');
+      authKey = k;
+    } else {
+      const email = document.getElementById('email').value.trim();
+      const pass  = document.getElementById('pass').value;
+      if (!email || !pass) throw new Error('Please fill in email and password.');
+      const r = await api('/api/login', { type:'Login', email, password: pass });
+      if (r.error) throw new Error(r.error.message || 'Login failed.');
+      authKey = r.result?.authKey;
+      if (!authKey) throw new Error('Could not get AuthKey from Stremio.');
+    }
+    txt.textContent = 'Loading addons…';
+    const r2 = await api('/api/addonCollectionGet', { type:'AddonCollectionGet', authKey, update: true });
+    if (r2.error) throw new Error(r2.error.message || 'Failed to fetch addons.');
+    addons = (r2.result?.addons || []).filter(a => (a.manifest || a).id);
+    if (!addons.length) throw new Error('No addons found on your Stremio account.');
+    selected = [...addons];
+    goStep(2);
+  } catch(e) {
+    errEl.textContent = e.message; errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; spin.classList.add('hidden'); txt.textContent = 'Fetch My Addons';
+  }
+}
+
+async function api(path, body) {
+  const r = await fetch('https://api.strem.io' + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+// ── Addon list ────────────────────────────────────────────────────────────────
+function renderAddons() {
+  document.getElementById('addonFoundTxt').textContent =
+    `Found ${addons.length} addon${addons.length !== 1 ? 's' : ''} on your account.`;
+  const list = document.getElementById('addonList');
+  list.innerHTML = '';
+  addons.forEach((addon, i) => {
+    const m = addon.manifest || addon;
+    const isSel = selected.some(a => (a.manifest||a).id === m.id);
+    const res = addon.manifest?.resources || addon.resources || [];
+    const cats = addon.manifest?.catalogs || addon.catalogs || [];
+    const hasCat = res.includes('catalog') || cats.length > 0;
+    const hasStr = res.includes('stream');
+    const hasMeta = res.includes('meta');
+    const item = document.createElement('div');
+    item.className = 'addon-item' + (isSel ? ' sel' : '');
+    item.onclick = () => toggleAddon(i, item);
+    const logo = m.logo
+      ? `<img class="addon-logo" src="${m.logo}" onerror="this.replaceWith(mkPh())" />`
+      : `<div class="addon-logo-ph">📦</div>`;
+    item.innerHTML = `
+      <div class="chk"></div>
+      ${logo}
+      <div class="addon-info">
+        <div class="addon-name">${m.name || 'Unknown'}</div>
+        <div class="addon-sub">${m.description || m.id || ''}</div>
+      </div>
+      <div class="badges">
+        ${hasCat  ? '<span class="badge b-cat">Cat</span>' : ''}
+        ${hasStr  ? '<span class="badge b-str">Stream</span>' : ''}
+        ${hasMeta ? '<span class="badge b-meta">Meta</span>' : ''}
+      </div>`;
+    list.appendChild(item);
+  });
+  updateCount();
+}
+
+function mkPh() { const d = document.createElement('div'); d.className='addon-logo-ph'; d.textContent='📦'; return d; }
+
+function toggleAddon(i, item) {
+  const id = (addons[i].manifest || addons[i]).id;
+  const idx = selected.findIndex(a => (a.manifest||a).id === id);
+  if (idx === -1) { selected.push(addons[i]); item.classList.add('sel'); }
+  else            { selected.splice(idx,1);   item.classList.remove('sel'); }
+  updateCount();
+}
+function selAll()  { selected = [...addons]; document.querySelectorAll('.addon-item').forEach(el=>el.classList.add('sel'));    updateCount(); }
+function selNone() { selected = [];          document.querySelectorAll('.addon-item').forEach(el=>el.classList.remove('sel')); updateCount(); }
+function updateCount() {
+  const n = selected.length;
+  document.getElementById('selCount').textContent = `${n} selected`;
+  document.getElementById('toStep3Btn').disabled = n === 0;
+}
+
+// ── Transfer setup ────────────────────────────────────────────────────────────
+function setupTransfer() {
+  autoIdx = 0; doneCount = 0;
+  stopAuto();
+  document.getElementById('mobileHint').classList.toggle('hidden', !isMobile);
+  document.getElementById('desktopHint').classList.toggle('hidden', isMobile);
+  document.getElementById('progFill').style.width = '0%';
+  document.getElementById('progTxt').textContent = `0 / ${selected.length} installed`;
+  document.getElementById('installAllBtn').disabled = false;
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('cdBox').classList.add('hidden');
+  document.getElementById('doneBtn').classList.add('hidden');
+
+  const list = document.getElementById('tList');
+  list.innerHTML = '';
+  selected.forEach((addon, i) => {
+    const m = addon.manifest || addon;
+    const url = getManifestUrl(addon);
+    const el = document.createElement('div');
+    el.className = 't-item';
+    el.id = 'ti' + i;
+    el.innerHTML = `
+      <div class="t-name" title="${url || ''}">${m.name || 'Unknown'}</div>
+      <span class="t-status s-wait" id="ts${i}">Waiting</span>
+      ${url ? `<button class="btn btn-ghost btn-xs" onclick="showQR(${i})" title="Show QR">QR</button>` : ''}
+      ${url ? `<button class="btn btn-ghost btn-xs" id="cp${i}" onclick="copyUrl(${i})" title="Copy URL">Copy</button>` : ''}
+    `;
+    list.appendChild(el);
+  });
+}
+
+// ── Auto install ──────────────────────────────────────────────────────────────
+function installAll() {
+  if (autoIdx >= selected.length) { autoIdx = 0; doneCount = 0; setupTransfer(); }
+  document.getElementById('installAllBtn').disabled = true;
+  document.getElementById('stopBtn').style.display = '';
+  runNext();
+}
+
+function runNext() {
+  if (autoIdx >= selected.length) {
+    finishAll(); return;
+  }
+  setStatus(autoIdx, 'curr', '⏳ Opening…');
+  const url = getManifestUrl(selected[autoIdx]);
+  if (url) {
+    openNuvio(url);
+    setTimeout(() => {
+      setStatus(autoIdx, 'done', '✓ Opened');
+      doneCount++;
+      updateProg();
+      autoIdx++;
+      // countdown to next
+      if (autoIdx < selected.length) startCountdown(3);
+      else finishAll();
+    }, 800);
+  } else {
+    setStatus(autoIdx, 'skip', 'No URL');
+    autoIdx++;
+    updateProg();
+    if (autoIdx < selected.length) startCountdown(1);
+    else finishAll();
+  }
+}
+
+function startCountdown(secs) {
+  const box = document.getElementById('cdBox');
+  const num = document.getElementById('cdNum');
+  box.classList.remove('hidden');
+  let t = secs;
+  num.textContent = t;
+  autoTimer = setInterval(() => {
+    t--;
+    num.textContent = t;
+    if (t <= 0) {
+      clearInterval(autoTimer);
+      box.classList.add('hidden');
+      runNext();
+    }
+  }, 1000);
+}
+
+function stopAuto() {
+  clearInterval(autoTimer);
+  document.getElementById('installAllBtn').disabled = false;
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('cdBox').classList.add('hidden');
+  // mark remaining as waiting
+  for (let i = autoIdx; i < selected.length; i++) {
+    const el = document.getElementById('ts'+i);
+    if (el && el.classList.contains('s-curr')) setStatus(i,'wait','Waiting');
+  }
+}
+
+function finishAll() {
+  clearInterval(autoTimer);
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('cdBox').classList.add('hidden');
+  document.getElementById('doneBtn').classList.remove('hidden');
+  document.getElementById('installAllBtn').textContent = '↺ Restart';
+  document.getElementById('installAllBtn').disabled = false;
+  autoIdx = 0;
+  // final progress
+  document.getElementById('progFill').style.width = '100%';
+  document.getElementById('progTxt').textContent = `${doneCount} / ${selected.length} installed`;
+}
+
+function setStatus(i, cls, txt) {
+  const el = document.getElementById('ts'+i);
+  if (!el) return;
+  el.className = 't-status s-' + cls;
+  el.textContent = txt;
+}
+
+function updateProg() {
+  const pct = selected.length ? Math.round((autoIdx / selected.length) * 100) : 0;
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progTxt').textContent = `${doneCount} / ${selected.length} installed`;
+}
+
+// ── Deep link ─────────────────────────────────────────────────────────────────
+function getManifestUrl(addon) {
+  return addon.transportUrl || addon.manifest_url || null;
+}
+
+function openNuvio(manifestUrl) {
+  try {
+    const p = new URL(manifestUrl);
+    const nuvioUrl = 'nuvio://' + p.host + p.pathname + p.search;
+    window.location.href = nuvioUrl;
+  } catch {
+    window.location.href = manifestUrl;
+  }
+}
+
+// ── Copy URL ──────────────────────────────────────────────────────────────────
+function copyUrl(i) {
+  const url = getManifestUrl(selected[i]);
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('cp'+i);
+    if (btn) { btn.textContent = '✓'; setTimeout(() => btn.textContent = 'Copy', 2000); }
+  });
+}
+
+// ── QR modal ──────────────────────────────────────────────────────────────────
+function showQR(i) {
+  const addon = selected[i];
+  const m = addon.manifest || addon;
+  const url = getManifestUrl(addon);
+  if (!url) return;
+
+  // nuvio:// deep link in QR
+  let qrUrl = url;
+  try { const p = new URL(url); qrUrl = 'nuvio://' + p.host + p.pathname + p.search; } catch {}
+
+  document.getElementById('qrTitle').textContent = m.name || 'Install Addon';
+  document.getElementById('qrSub').textContent = 'Scan with your phone to open Nuvio and install this addon.';
+  document.getElementById('qrUrl').textContent = url;
+  document.getElementById('qrUrl').dataset.url = url;
+
+  const canvas = document.getElementById('qrCanvas');
+  QRCode.toCanvas(canvas, qrUrl, { width: 200, margin: 1, color: { dark: '#000', light: '#fff' } });
+  document.getElementById('qrModal').classList.remove('hidden');
+}
+
+function closeQR(e) {
+  if (e.target.id === 'qrModal') document.getElementById('qrModal').classList.add('hidden');
+}
+
+function copyQrUrl() {
+  const url = document.getElementById('qrUrl').dataset.url;
+  navigator.clipboard.writeText(url).then(() => {
+    document.getElementById('qrUrl').textContent = '✓ Copied!';
+    setTimeout(() => { document.getElementById('qrUrl').textContent = url; }, 2000);
+  });
+}
+</script>
+</body>
+</html>
