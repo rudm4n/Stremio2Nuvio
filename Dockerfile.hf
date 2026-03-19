@@ -2,7 +2,8 @@ FROM alpine:latest
 
 RUN apk add --no-cache git busybox-extras
 
-RUN git clone https://github.com/rudm4n/Stremio2Nuvio.git /tmp/app &&     mkdir -p /var/www &&     cp /tmp/app/index.html /var/www/index.html &&     rm -rf /tmp/app
+# ⚠️ Replace YOUR_GITHUB_USERNAME with your actual GitHub username!
+RUN git clone https://github.com/YOUR_GITHUB_USERNAME/Stremio2Nuvio.git /tmp/app &&     mkdir -p /var/www &&     cp /tmp/app/index.html /var/www/index.html &&     rm -rf /tmp/app
 
 EXPOSE 7860
 
