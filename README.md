@@ -18,7 +18,12 @@ Transfer your Stremio addons to Nuvio with one click.
 
 No downloads, no terminal — everything from the browser.
 
-### Step 1 — Create a new Space
+### Step 1 — Fork this repo
+
+- Click the **Fork** button at the top right of this page
+- This creates a copy of the repo under your GitHub account
+
+### Step 2 — Create a new Space on Hugging Face
 
 - Go to [huggingface.co/new-space](https://huggingface.co/new-space)
 - Choose a name (e.g. `Stremio2Nuvio`)
@@ -27,7 +32,7 @@ No downloads, no terminal — everything from the browser.
 - Set as **Public space**
 - Click **Create Space**
 
-### Step 2 — Create the Dockerfile
+### Step 3 — Create the Dockerfile
 
 - On the Space page, click **"Create the Dockerfile"** (near the bottom)
 - Copy and paste the following content into the editor:
@@ -37,25 +42,30 @@ FROM alpine:latest
 
 RUN apk add --no-cache git busybox-extras
 
-RUN git clone https://github.com/rudm4n/Stremio2Nuvio.git /tmp/app &&     mkdir -p /var/www &&     cp /tmp/app/index.html /var/www/index.html &&     rm -rf /tmp/app
+RUN git clone https://github.com/YOUR_GITHUB_USERNAME/Stremio2Nuvio.git /tmp/app &&     mkdir -p /var/www &&     cp /tmp/app/index.html /var/www/index.html &&     rm -rf /tmp/app
 
 EXPOSE 7860
 
 CMD ["httpd", "-f", "-p", "7860", "-h", "/var/www"]
 ```
 
+> ⚠️ **Replace `YOUR_GITHUB_USERNAME` with your actual GitHub username!**
+
 - Click **"Commit new file to main"**
 
-### Step 3 — Done! 🎉
+### Step 4 — Done! 🎉
 
 The Space will build automatically. Your app will be live at:
 
 ```
-https://<your-username>-<space-name>.hf.space
+https://<your-hf-username>-<space-name>.hf.space
 ```
 
 ### 🔄 Updating
 
-When a new version is released, just go to your Space **Settings** → **Factory reboot**.
+To get the latest version:
 
-The Space will rebuild and pull the latest version from GitHub automatically.
+1. Go to your forked repo on GitHub and click **Sync fork** to pull the latest changes
+2. Then go to your HF Space **Settings** → **Factory reboot**
+
+The Space will rebuild and pull the latest code from your fork automatically.
