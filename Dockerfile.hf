@@ -1,8 +1,8 @@
-FROM busybox:latest
+FROM alpine:latest
 
-RUN git clone https://github.com/rudm4n/Stremio2Nuvio.git /tmp/app
+RUN apk add --no-cache git busybox-extras
 
-RUN cp /tmp/app/index.html /var/www/index.html
+RUN git clone https://github.com/rudm4n/Stremio2Nuvio.git /tmp/app &&     mkdir -p /var/www &&     cp /tmp/app/index.html /var/www/index.html &&     rm -rf /tmp/app
 
 EXPOSE 7860
 
