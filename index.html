@@ -494,9 +494,8 @@ function runNext() {
   // copy URL to clipboard
   try { navigator.clipboard.writeText(url); } catch {}
 
-  // build nuvio:// deep link
-  let nuvioUrl = url;
-  try { const p = new URL(url); nuvioUrl = 'nuvio://' + p.host + p.pathname + p.search; } catch {}
+  // build stremio:// deep link (Nuvio uses stremio:// protocol)
+  const nuvioUrl = url.replace(/^https?:\/\//, 'stremio://');
 
   // show current install box — user MUST tap the link (browser requires user gesture for deep links)
   const box = document.getElementById('currentInstallBox');
@@ -590,9 +589,8 @@ function showQR(i) {
   const url = getManifestUrl(addon);
   if (!url) return;
 
-  // nuvio:// deep link in QR
-  let qrUrl = url;
-  try { const p = new URL(url); qrUrl = 'nuvio://' + p.host + p.pathname + p.search; } catch {}
+  // stremio:// deep link in QR (Nuvio uses stremio:// protocol)
+  const qrUrl = url.replace(/^https?:\/\//, 'stremio://');
 
   document.getElementById('qrTitle').textContent = m.name || 'Install Addon';
   document.getElementById('qrSub').textContent = 'Scan with your phone to open Nuvio and install this addon.';
