@@ -12,46 +12,50 @@ license: mit
 
 Transfer your Stremio addons to Nuvio with one click.
 
+---
+
 ## 🚀 Self-Host on Hugging Face Spaces
 
-You can deploy your own copy entirely from the browser — no terminal required.
+No downloads, no terminal — everything from the browser.
 
-### Step 1 — Create a Hugging Face account
+### Step 1 — Create a new Space
 
-If you don't have one, sign up at [huggingface.co/join](https://huggingface.co/join).
+- Go to [huggingface.co/new-space](https://huggingface.co/new-space)
+- Choose a name (e.g. `Stremio2Nuvio`)
+- Select **Docker** as SDK
+- Select **Blank**
+- Set as **Public space**
+- Click **Create Space**
 
-### Step 2 — Create a new Space
+### Step 2 — Create the Dockerfile
 
-1. Go to [huggingface.co/new-space](https://huggingface.co/new-space)
-2. **Space name**: choose any name you like (e.g. `Stremio2Nuvio`)
-3. **SDK**: select **Docker**
-4. **Visibility**: Public or Private — your choice
-5. Click **Create Space**
+- On the Space page, click **"Create the Dockerfile"** (near the bottom)
+- Copy and paste the following content into the editor:
 
-### Step 3 — Connect the GitHub repo
+```dockerfile
+FROM alpine:latest
 
-1. In your new Space, go to **Settings**
-2. Scroll down to **Repository** and find the Git remote URL of your Space (it looks like `https://huggingface.co/spaces/YOUR_USERNAME/Stremio2Nuvio`)
-3. Now go to the **Files** tab and delete all existing files (the default `README.md` and `Dockerfile`)
-4. Clone this GitHub repo and push it to your Space — or simply:
-   - Click **+ Add file** → **Upload files**
-   - Download all files from this repo: [`index.html`](https://raw.githubusercontent.com/rudm4n/Stremio2Nuvio/main/index.html), [`Dockerfile`](https://raw.githubusercontent.com/rudm4n/Stremio2Nuvio/main/Dockerfile), and [`README.md`](https://raw.githubusercontent.com/rudm4n/Stremio2Nuvio/main/README.md)
-   - Upload all three files and click **Commit changes to main**
+RUN apk add --no-cache git busybox-extras
 
-### Step 4 — Done! 🎉
+RUN git clone https://github.com/rudm4n/Stremio2Nuvio.git /tmp/app &&     mkdir -p /var/www &&     cp /tmp/app/index.html /var/www/index.html &&     rm -rf /tmp/app
 
-The Space will build automatically and your app will be live at:
+EXPOSE 7860
+
+CMD ["httpd", "-f", "-p", "7860", "-h", "/var/www"]
+```
+
+- Click **"Commit new file to main"**
+
+### Step 3 — Done! 🎉
+
+The Space will build automatically. Your app will be live at:
 
 ```
 https://<your-username>-<space-name>.hf.space
 ```
 
-### Updating
+### 🔄 Updating
 
-When a new version is released:
+When a new version is released, just go to your Space **Settings** → **Factory reboot**.
 
-1. Download the updated files from this repo
-2. Upload them to your Space (overwrite the existing ones)
-3. The Space will rebuild automatically
-
-Or if you prefer, go to **Settings** → **Factory reboot** to force a rebuild.
+The Space will rebuild and pull the latest version from GitHub automatically.
