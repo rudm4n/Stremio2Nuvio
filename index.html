@@ -478,7 +478,7 @@ function runNext() {
       updateProg();
       autoIdx++;
       // countdown to next
-      if (autoIdx < selected.length) startCountdown(3);
+      if (autoIdx < selected.length) startCountdown(5);
       else finishAll();
     }, 800);
   } else {
@@ -551,13 +551,22 @@ function getManifestUrl(addon) {
 }
 
 function openNuvio(manifestUrl) {
+  let nuvioUrl = manifestUrl;
   try {
     const p = new URL(manifestUrl);
-    const nuvioUrl = 'nuvio://' + p.host + p.pathname + p.search;
-    window.location.href = nuvioUrl;
-  } catch {
-    window.location.href = manifestUrl;
-  }
+    nuvioUrl = 'nuvio://' + p.host + p.pathname + p.search;
+  } catch {}
+
+  // copy URL to clipboard silently (fallback for manual paste)
+  try { navigator.clipboard.writeText(manifestUrl); } catch {}
+
+  // use a hidden anchor click — doesn't navigate away from page
+  const a = document.createElement('a');
+  a.href = nuvioUrl;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 // ── Copy URL ──────────────────────────────────────────────────────────────────
